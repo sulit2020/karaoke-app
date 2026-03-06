@@ -461,7 +461,7 @@ export default function Page() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); search(); } }}
               />
-              <button onClick={search} className="bg-gray-100 border-l px-4 rounded-r-full">Search</button>
+              <button onClick={search} className="bg-red-600 border-l px-4 py-2 rounded-r-full text-white">Search</button>
             </div>
           </div>
 
@@ -544,6 +544,47 @@ export default function Page() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => { setCurrentQueueIndex(idx); currentQueueIndexRef.current = idx; play({ videoId: item.videoId, title: item.title, thumbnail: item.thumbnail }); }} className="px-2 py-1 bg-green-500 text-white rounded text-sm">Play</button>
+                    <button
+                      onClick={async () => {
+                        // remove this item from queue
+                        let ok = false;
+                        try {
+                          const resp = await fetch('/api/queue', { method: 'DELETE', body: JSON.stringify({ id: item.id }) });
+                          ok = resp.ok;
+                          if (!resp.ok) throw new Error('delete failed');
+                        } catch (err) {
+                          showToast('error', 'Failed to delete');
+                        }
+                        if (ok) {
+                          showToast('success', 'Reservation removed');
+                        }
+
+                        // re-fetch queue and adjust indexes
+                        try {
+                          const rr = await fetch('/api/queue');
+                          if (rr.ok) {
+                            const newQ = await rr.json();
+                            setQueue(newQ);
+                            queueRef.current = newQ;
+                            const curIdx = currentQueueIndexRef.current;
+                            if (curIdx !== null && curIdx !== undefined) {
+                              // if we deleted the currently-selected item, clear selection
+                              if (curIdx === idx) {
+                                setCurrentQueueIndex(null);
+                                currentQueueIndexRef.current = null;
+                              } else if (curIdx > idx) {
+                                // shift index down one
+                                setCurrentQueueIndex(curIdx - 1);
+                                currentQueueIndexRef.current = curIdx - 1;
+                              }
+                            }
+                          }
+                        } catch {}
+                      }}
+                      className="px-2 py-1 bg-red-500 text-white rounded text-sm"
+                    >
+                      Del
+                    </button>
                   </div>
                 </div>
               ))}
